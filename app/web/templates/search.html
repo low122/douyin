@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block body %}
+<form class="search" method="get" action="/">
+  <input type="search" name="q" value="{{ q or '' }}" placeholder="搜索你存过的内容…"
+         autocomplete="off" {% if not q %}autofocus{% endif %}>
+  <button type="submit"><span class="label">搜索</span></button>
+</form>
+
+{% if error %}
+  {# Deliberately not the "nothing matched" state: the search never ran, and
+     saying it found nothing would blame the query for an outage. #}
+  <div class="banner">{{ error }}</div>
+{% elif q %}
+  {% if hits %}
+    {# A rank exists only for the retriever that actually returned the row, so an
+       absent vector rank is the vector side declining to vouch for it. When that
+       is true of every hit, the query found nothing semantically close and the
+       list is keyword coincidence — which the reader has no other way to see. #}
+    {% set semantic = hits | selectattr('vector_rank') | list %}
+    {% if not semantic %}
+      <div class="notice">
+        语义检索没有找到足够接近的内容，下面是<strong>仅靠关键词</strong>匹配到的。
+        缩写和专有名词常常这样 —— 换成完整说法（例如「检索增强生成」而不是「RAG」）通常好很多。
+      </div>
+    {% endif %}
+    <p class="count">{{ hits|length }} 个片段</p>
+    {% for h in hits %}
+      {# Position of this moment inside its video, as percentages. Guarded:
+         duration is nullable, and a zero would divide. #}
+      {% set dur = h.video_duration or 0 %}
+      {% set left = (h.start_sec / dur * 100) if dur else 0 %}
+      {% set width = ((h.end_sec - h.start_sec) / dur * 100) if dur else 0 %}
+      {% set ev = {'strong': '实证', 'anecdotal': '举例', 'unsupported': '断言'}.get(h.evidence_strength) %}
+      <article class="hit">
+        <div class="hit-top">
+          <span class="stamp">{{ h.start_sec | mmss }} → {{ h.end_sec | mmss }}</span>
+          <span class="author">{{ h.author_name or '未知作者' }}</span>
+          {# Both chips answer "how far should I trust this", so they travel
+             together and the group is what right-aligns — otherwise the auto
+             margin lands between them and they read as unrelated. #}
+          <span class="marks">
+            {% if not h.vector_rank %}
+              <span class="weak" title="向量检索没有返回这条；它是靠字面关键词匹配到的">仅关键词</span>
+            {% endif %}
+            {% if ev %}
+              <span class="evidence {{ h.evidence_strength }}"
+                    title="证据强度：{{ h.evidence_strength }}">{{ ev }}</span>
+            {% endif %}
+          </span>
+        </div>
+
+        <div class="track" aria-hidden="true">
+          <span style="left:{{ '%.2f'|format(left) }}%;width:{{ '%.2f'|format(width) }}%"></span>
+        </div>
+
+        <h3>{{ h.title }}</h3>
+        <p class="sum">{{ h.summary }}</p>
+
+        {% if h.keywords %}
+          <div class="tags">
+            {% for k in h.keywords %}<span class="tag">{{ k }}</span>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="hit-foot">
+          {# The product's whole promise: back to the exact second. #}
+          <a class="jump" href="{{ h.deep_link }}" target="_blank" rel="noopener">
+            ▶ 跳到 {{ h.start_sec | mmss }}
+          </a>
+          <span class="via">{% if h.full_text_rank %}全文 {{ h.full_text_rank }}{% endif %}{% if h.full_text_rank and h.vector_rank %} · {% endif %}{% if h.vector_rank %}向量 {{ h.vector_rank }}{% endif %}</span>
+        </div>
+      </article>
+    {% endfor %}
+  {% else %}
+    <div class="empty">
+      <strong>没有找到相关片段</strong>
+      <span>「{{ q }}」和已收录的内容都不够接近。</span>
+    </div>
+  {% endif %}
+{% else %}
+  <div class="empty">
+    <strong>{{ video_count }} 个视频 · {{ moment_count }} 个片段</strong>
+    <span>从抖音分享一条视频进来，或直接搜索。</span>
+  </div>
+{% endif %}
+{% endblock %}

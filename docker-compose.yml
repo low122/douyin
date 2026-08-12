@@ -1,0 +1,79 @@
+# Pinned explicitly. Compose otherwise derives the project name from the
+# directory, which yields an empty name for a non-ASCII path such as 抖音 and
+# refuses to start. Pinning it also keeps container names stable no matter
+# what a self-hoster calls their clone.
+name: douyin-kb
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: douyin
+      POSTGRES_DB: douyin
+      # Read from .env — never hardcode a password in a committed file.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set. Copy .env.example to .env and fill it in.}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Bound to the loopback address, not every interface. Published as
+      # "5432:5432" this listens on the LAN, so anyone sharing the Wi-Fi can
+      # reach the database directly — which stops being theoretical the moment
+      # the API is opened up for a phone to use. Containers are unaffected: they
+      # reach each other by service name over the compose network, not through
+      # a published port.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U douyin -d douyin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      # Same reasoning as the database, and more urgent: this Redis has no
+      # password at all, so anything that can reach the port owns the job queue.
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      # Override the host-facing values from .env: inside the compose network
+      # the services are reachable by service name, not localhost.
+      DATABASE_URL: postgresql+asyncpg://douyin:${POSTGRES_PASSWORD}@db:5432/douyin
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # No source bind-mount here on purpose. The image already contains the
+    # code, so this file runs anywhere; mounting the working tree needs host
+    # permissions that not every machine grants (macOS refuses to share
+    # ~/Documents by default). Hot reload lives in docker-compose.dev.yml.
+
+  # Same image as the api, different command. The work is minutes long per video,
+  # which is why it does not run inside a request.
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://douyin:${POSTGRES_PASSWORD}@db:5432/douyin
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: arq app.worker.WorkerSettings
+
+volumes:
+  pgdata:

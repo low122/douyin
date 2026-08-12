@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block body %}
+{% if rows %}
+<p class="count">{{ rows|length }} 个视频</p>
+{% for v, live, dead in rows %}
+  <article class="hit">
+    <div class="hit-top">
+      <span class="stamp">{{ v.duration_sec | mmss }}</span>
+      <span class="author">{{ v.author_name or '未知作者' }}</span>
+      <span class="marks">
+        {# A video with no moments at the current schema is in the library and
+           cannot be found by any search — the one state here worth a warning,
+           because nothing else on the page distinguishes it from a working one. #}
+        {% if live %}
+          <span class="evidence strong">{{ live }} 个片段</span>
+        {% else %}
+          <span class="evidence" style="color:#f0837f">搜不到</span>
+        {% endif %}
+      </span>
+    </div>
+    <h3>{{ v.caption or '（无标题）' }}</h3>
+    <div class="hit-foot">
+      <a class="jump" href="{{ v.source_url }}" target="_blank" rel="noopener">▶ 打开原视频</a>
+      <span class="via">
+        {% if dead %}{{ dead }} 个旧版本残留 · {% endif %}{{ v.created_at.strftime('%m-%d') }}
+      </span>
+      <a class="danger" href="/library/{{ v.id }}/delete">删除</a>
+    </div>
+  </article>
+{% endfor %}
+{% else %}
+  <div class="empty"><strong>库里还没有视频</strong><span>从「添加」粘一条进来。</span></div>
+{% endif %}
+{% endblock %}

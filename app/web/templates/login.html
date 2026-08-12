@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<div style="max-width:400px;margin:8vh auto 0">
+  <p class="note" style="margin:0 0 12px">输入访问令牌 —— <code>.env</code> 里的 <code>API_TOKEN</code>。</p>
+  <form method="post" action="/login" style="display:flex;flex-direction:column;gap:10px">
+    <input type="password" name="token" placeholder="令牌" autofocus autocomplete="current-password">
+    <button type="submit"><span class="label">进入</span></button>
+  </form>
+  {% if error %}<div class="banner" style="margin-top:14px">{{ error }}</div>{% endif %}
+</div>
+{% endblock %}

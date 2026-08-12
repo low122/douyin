@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block body %}
+{% if queued %}
+  <div class="notice">
+    已加入队列（任务 <strong>#{{ queued }}</strong>）。处理要几分钟 ——
+    结果在<a href="/admin/jobs">任务页</a>。
+  </div>
+{% endif %}
+{% if error %}
+  <div class="banner">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/add">
+  {# A textarea, not a single-line input: what gets pasted is the whole share
+     blob, and the link is somewhere in the middle of it. Asking someone to pick
+     the URL out first is asking them to do the parser's job — the same reason
+     the JSON API takes `text` and not `url`. #}
+  {# Short placeholder on purpose: at five rows on a phone a longer one is cut
+     off mid-word, and a truncated instruction is worse than a brief one. The
+     example lives below, where it stays readable and does not vanish on the
+     first keystroke. #}
+  <textarea name="text" rows="5" required autofocus
+            placeholder="粘贴抖音分享的整段文字…"></textarea>
+  <button type="submit"><span class="label">加入队列</span></button>
+</form>
+
+<p class="note" style="margin-top:16px">
+  抖音里点<strong>分享 → 复制链接</strong>，回到这里粘上即可 —— 不用自己挑出网址，
+  整段带文字的内容直接贴进来就行：
+</p>
+<p class="note" style="margin-top:6px; word-break:break-all; color:var(--faint)">
+  <code>7.61 abc:/ 这个视频讲得很好 https://v.douyin.com/XXXXXXX/ 复制此链接…</code>
+</p>
+{% endblock %}

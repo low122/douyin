@@ -1,0 +1,24 @@
+# Development overlay: mounts the working tree so edits reload without a
+# rebuild. Opt in explicitly, because a bind mount needs the host to allow
+# Docker to read the project directory.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# On macOS, sharing a folder under ~/Documents, ~/Desktop or ~/Downloads also
+# needs Docker Desktop to be granted access:
+#   System Settings > Privacy & Security > Files and Folders > Docker
+# The error when it is missing is:
+#   mkdir /host_mnt/...: operation not permitted
+
+services:
+  api:
+    volumes:
+      - ./app:/srv/app
+      - ./alembic:/srv/alembic
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    volumes:
+      - ./app:/srv/app
+    # arq watches nothing on its own; --watch restarts it when the source changes.
+    command: arq app.worker.WorkerSettings --watch app

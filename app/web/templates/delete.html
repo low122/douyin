@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="banner">删除之后无法恢复。要重新拥有它，只能再分享一次链接、重新付费处理一遍。</div>
+
+<article class="hit">
+  <div class="hit-top">
+    <span class="stamp">{{ video.duration_sec | mmss }}</span>
+    <span class="author">{{ video.author_name or '未知作者' }}</span>
+  </div>
+  <h3>{{ video.caption or '（无标题）' }}</h3>
+  <p class="sum">将同时删除 <strong>{{ moments }}</strong> 个片段、这个视频的转录，以及它的调用记录。</p>
+</article>
+
+<form method="post" action="/library/{{ video.id }}/delete" style="display:flex;gap:10px;margin-top:16px">
+  <button type="submit" class="danger-btn"><span class="label">确认删除</span></button>
+  <a class="jump" href="/library" style="align-self:center">取消</a>
+</form>
+
+<p class="note" style="margin-top:14px">
+  提交进来的任务记录会保留 —— 那是「这条链接被提交过」的事实，删掉视频不会让它变成没发生过。
+</p>
+{% endblock %}

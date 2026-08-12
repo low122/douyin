@@ -1,0 +1,7 @@
+# A single shared bearer token guards the whole service
+
+Both the ingest endpoint and the admin UI sit behind one shared secret, supplied as `Authorization: Bearer <token>`. The service refuses to start if the token is unset, comparison uses a constant-time function, and the auto-generated API docs are disabled outside development.
+
+The threat is not a targeted attacker. A service on a public IP is found within hours by indiscriminate scanners, and requesting a TLS certificate publishes the hostname to Certificate Transparency logs, so the address is discoverable even if it is never shared. An unauthenticated ingest endpoint is then an open invitation to spend the operator's model budget, and an unauthenticated UI publishes everything they have saved.
+
+Rejected: a full account system, which contradicts the single-user scope and would be the larger security surface; and network isolation via a mesh VPN, which defeats the attack outright but asks a self-hoster to understand VPNs — it belongs in the README as hardening, not in the default path. Two details carry most of the weight and are easy to get wrong: authentication runs as middleware ahead of all business logic, so a rejected request costs a string comparison rather than a link resolution and a model call; and the comparison must be constant-time, since a short-circuiting `==` leaks how many leading characters were correct and reduces brute force from infeasible to trivial.

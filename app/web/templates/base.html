@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>{% block title %}知识库{% endblock %}</title>
+<style>
+/* Hand-written rather than pulled from a CDN. A self-hosted tool should not
+   stop looking like itself because someone else's server is down, and this is
+   less than the configuration a framework would need.
+
+   The accent is amber, not the default blue: every result in this product is a
+   span of time, so time is what the eye should land on first, and warm reads as
+   "a moment" in a way blue does not. */
+:root {
+  --bg:      #0e1013;
+  --surface: #16191f;
+  --raised:  #1c2028;
+  --line:    #242932;
+  --track:   #2b313b;
+  --text:    #e9ebee;
+  --muted:   #98a0ad;
+  --faint:   #6b7280;
+  --accent:  #e0a458;
+  --accent-dim: #3a2f1e;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:      #faf9f7;
+    --surface: #ffffff;
+    --raised:  #f4f2ef;
+    --line:    #e6e3dd;
+  --track:   #ddd8d0;
+    --text:    #1b1d21;
+    --muted:   #5f6672;
+    --faint:   #8a919c;
+    --accent:  #a86d1c;
+    --accent-dim: #f5e9d6;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.wrap { max-width: 720px; margin: 0 auto; padding: 18px 16px 72px; }
+
+/* ---- header ---------------------------------------------------------- */
+header {
+  display: flex; align-items: center; gap: 18px;
+  padding-bottom: 14px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-size: 16px; font-weight: 650; letter-spacing: .02em;
+  color: var(--text); text-decoration: none;
+}
+.brand::before {
+  content: ""; display: inline-block; vertical-align: -1px;
+  width: 7px; height: 7px; margin-right: 8px; border-radius: 2px;
+  background: var(--accent);
+}
+header nav { margin-left: auto; display: flex; gap: 4px; }
+header nav a {
+  font-size: 13.5px; color: var(--muted); text-decoration: none;
+  padding: 5px 10px; border-radius: 8px;
+}
+header nav a:hover { color: var(--text); background: var(--raised); }
+.pill-count {
+  display: inline-block; margin-left: 5px; padding: 0 6px;
+  border-radius: 999px; background: var(--accent-dim); color: var(--accent);
+  font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+
+/* ---- search ---------------------------------------------------------- */
+form.search { display: flex; gap: 8px; margin-bottom: 22px; }
+input[type=search], input[type=password], textarea {
+  flex: 1; min-width: 0;
+  padding: 13px 16px; font-size: 16px;   /* 16px stops iOS zooming on focus */
+  font-family: inherit; color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea {
+  display: block; width: 100%; margin-bottom: 10px;
+  line-height: 1.6; resize: vertical;
+}
+input::placeholder, textarea::placeholder { color: var(--faint); }
+input:focus, textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+button {
+  position: relative;
+  padding: 13px 20px; font: inherit; font-weight: 600; cursor: pointer;
+  color: var(--bg); background: var(--accent);
+  border: 0; border-radius: var(--radius);
+  transition: filter .15s;
+}
+button:hover { filter: brightness(1.08); }
+
+/* A search waits on a round-trip to the embedding API — usually under a second,
+   but not always. Without this the page is byte-identical for that whole time,
+   and "identical after I clicked" is how a working page gets read as a hung one.
+   It also swallows the double-submit that follows. */
+form.busy button { pointer-events: none; }
+form.busy button .label { visibility: hidden; }
+form.busy button::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--bg) 40%, transparent);
+  border-top-color: var(--bg);
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  form.busy button::after { animation-duration: 2.4s; }
+}
+
+/* ---- result card ----------------------------------------------------- */
+.hit {
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 15px 17px 13px; margin-bottom: 11px;
+  transition: border-color .15s;
+}
+.hit:hover { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+
+.hit-top { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.stamp {
+  font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 650;
+  letter-spacing: .01em; color: var(--accent); white-space: nowrap;
+}
+.author { font-size: 12.5px; color: var(--faint); overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; }
+/* Evidence strength was three dots in the top-right corner. Three dots in the
+   top-right corner is a "more actions" menu everywhere else on the internet, so
+   it invited a tap and told the reader nothing. A short word costs the same
+   space and needs no decoding. */
+.marks { margin-left: auto; flex: none; display: flex; gap: 6px; }
+.evidence {
+  flex: none;
+  font-size: 11px; padding: 2px 7px; border-radius: 5px;
+  background: var(--raised); color: var(--faint); white-space: nowrap;
+}
+.evidence.strong { background: var(--accent-dim); color: var(--accent); }
+
+/* A hit the vector side never supported. It is shown rather than dropped —
+   hybrid retrieval exists precisely so that a rare term nothing embeds near can
+   still be found by name — but it must not look like a hit both retrievers
+   agreed on. Outlined rather than filled: present, deliberately not loud. */
+.weak {
+  flex: none;
+  font-size: 11px; padding: 1.5px 7px; border-radius: 5px;
+  color: var(--faint); background: transparent;
+  border: 1px dashed var(--line); white-space: nowrap;
+}
+/* Said once above the list, because "the semantic half returned nothing" is a
+   fact about the whole query, not about any one card. */
+.notice {
+  padding: 11px 14px; border-radius: 10px; margin-bottom: 14px;
+  font-size: 13px; line-height: 1.65;
+  background: var(--raised); color: var(--muted);
+  border-left: 3px solid var(--accent);
+}
+
+/* Where this moment sits inside its video. The timestamp says when; this says
+   whether it is the opening, the middle, or the wrap-up — which is what decides
+   whether the result is worth tapping.
+
+   The unfilled track needs its own colour, not the card's: at surface tone the
+   bar reads as a floating dash with nothing to be positioned against, and the
+   whole point is the position. */
+.track {
+  position: relative; height: 4px; border-radius: 2px;
+  background: var(--track); margin-bottom: 12px; overflow: hidden;
+}
+.track span {
+  position: absolute; top: 0; bottom: 0; border-radius: 2px;
+  background: var(--accent); min-width: 3px;
+}
+
+.hit h3 { margin: 0 0 7px; font-size: 16.5px; font-weight: 620; line-height: 1.45; }
+.hit p.sum {
+  margin: 0 0 12px; font-size: 14.5px; line-height: 1.8; color: var(--muted);
+}
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.tag {
+  font-size: 11.5px; padding: 2.5px 8px; border-radius: 6px;
+  background: var(--raised); color: var(--muted);
+}
+.hit-foot { display: flex; align-items: center; gap: 12px; }
+.jump {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 600; text-decoration: none;
+  color: var(--accent); padding: 6px 12px 6px 10px;
+  border: 1px solid var(--accent-dim); border-radius: 9px;
+  background: var(--accent-dim);
+}
+.jump:hover { filter: brightness(1.1); }
+/* Diagnostic, not content — which retriever surfaced this. Readable when
+   looked for, invisible when not. */
+.via { margin-left: auto; font-size: 11px; color: var(--faint);
+       font-variant-numeric: tabular-nums; }
+
+/* ---- misc ------------------------------------------------------------ */
+/* Destructive actions are quiet until reached for. A red button sitting in
+   every row makes the page feel like a minefield and trains the eye to ignore
+   red — which is the colour that has to still work on the confirmation page. */
+.danger { font-size: 12.5px; color: var(--faint); text-decoration: none;
+          padding: 4px 8px; border-radius: 7px; }
+.danger:hover { color: #f0837f; background: #3a1f22; }
+@media (prefers-color-scheme: light) { .danger:hover { background: #fbe4e2; color: #b3453f; } }
+.danger-btn { background: #b3453f; color: #fff; }
+
+.count { font-size: 13px; color: var(--faint); margin: 0 0 14px; }
+.empty { text-align: center; padding: 56px 16px; color: var(--muted); }
+.empty strong { display: block; font-size: 17px; color: var(--text); margin-bottom: 8px;
+                font-weight: 600; }
+.empty span { font-size: 13.5px; color: var(--faint); }
+.note { color: var(--faint); font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; padding: 8px 8px; color: var(--faint); font-weight: 500;
+     border-bottom: 1px solid var(--line); font-size: 12px; }
+td { padding: 10px 8px; border-bottom: 1px solid var(--line);
+     font-variant-numeric: tabular-nums; }
+.status {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600;
+  background: var(--raised); color: var(--muted);
+}
+.job-title {
+  font-size: 13.5px; color: var(--text); line-height: 1.5;
+  /* Captions run long. Two lines is enough to recognise a video, and lets the
+     row stay a row. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; margin-bottom: 2px;
+}
+.status.done      { background: var(--accent-dim); color: var(--accent); }
+.status.failed    { background: #3a1f22; color: #f0837f; }
+.status.duplicate { background: var(--raised); color: var(--faint); }
+@media (prefers-color-scheme: light) {
+  .status.failed { background: #fbe4e2; color: #b3453f; }
+}
+.banner {
+  padding: 11px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 13.5px;
+  background: #3a1f22; color: #f0837f;
+}
+@media (prefers-color-scheme: light) { .banner { background: #fbe4e2; color: #b3453f; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/">知识库</a>
+    <nav>
+      <a href="/">搜索</a>
+      <a href="/add">添加</a>
+      <a href="/library">库</a>
+      <a href="/admin/jobs">任务{% if failed_total %}<span class="pill-count">{{ failed_total }}</span>{% endif %}</a>
+    </nav>
+  </header>
+  {% block body %}{% endblock %}
+</div>
+<script>
+// Every form here submits and navigates, so marking the form on submit is all
+// the CSS above needs. Delegated from the document so a new form needs no wiring.
+document.addEventListener("submit", function (e) {
+  if (e.target.tagName === "FORM") e.target.classList.add("busy");
+});
+// Back-button restores come from the bfcache with the DOM exactly as it was left
+// — including the spinner — so a returning reader would land on a button that
+// spins forever over a page that finished loading.
+window.addEventListener("pageshow", function () {
+  document.querySelectorAll("form.busy").forEach(function (f) {
+    f.classList.remove("busy");
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+# Retrieval evaluation set.
+#
+# Each entry is a question someone might type, plus the second in the video
+# where the answer is actually spoken. A result counts as correct when the
+# returned moment's span contains that second.
+#
+# HOW THESE WERE WRITTEN, AND WHY IT MATTERS
+#
+# Every query below was written from the transcript — from what the speaker
+# actually says — and never from the moment titles or summaries the system
+# produced. A set labelled from the system's own output measures nothing: it
+# rewards the model for being consistent with itself, and scores highest
+# exactly when the extraction has confidently misread the video.
+#
+# The `source` line on each entry quotes the transcript span it came from, so
+# the labelling can be checked rather than trusted.
+#
+# THIS IS A SEED, NOT A BENCHMARK
+#
+# Six queries over two videos is enough to catch a retrieval regression and far
+# too small to compare two approaches. It is also written in someone else's
+# phrasing. Add your own — the way *you* would search months after watching is
+# the distribution that matters, and it is the one thing that cannot be
+# reconstructed later.
+
+queries:
+  - query: 为什么模型分不清真话和假话
+    video_id: 1
+    at_sec: 68
+    source: "[67-72] 它从来没见过「这句话符合事实」或者「这句话是编的」这样的监督标签"
+
+  - query: 人不确定的时候会说不知道，模型为什么不会
+    video_id: 1
+    at_sec: 106
+    source: "[105-110] 他会停顿 甚至直接说我不确定 / 大模型不会 / 内部不存在一个评估模块来喊停"
+
+  - query: 参数装不下全部训练数据会怎么样
+    video_id: 1
+    at_sec: 189
+    source: "[186-195] 无法精确刻录每一条冷僻的实验数据 / 模型根本不是在回忆 而是在补全"
+
+  - query: 怎么知道这个数字是从哪张表来的
+    video_id: 4
+    at_sec: 172
+    source: "[170-177] 这个数字来自哪张表 对应哪个财年哪个指标 / 你根本没办法往回追溯"
+
+  - query: 固定长度切分文档有什么问题
+    video_id: 4
+    at_sec: 186
+    source: "[185-189] 这里要彻底和固定长度分块说再见 / 正确的姿势是按语意单元来切"
+
+  - query: 检索到的内容能不能直接全部塞给模型
+    video_id: 4
+    at_sec: 263
+    source: "[260-268] 一股脑全塞进 context 里指望模型硬啃 / 这仍然是一种暴力阅读"

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block body %}
+{% if failed_total %}
+  {# Surfaced here because the alternative is a job that failed at 3am and is
+     never noticed — you do not go looking for something you believe was saved
+     (the same silent-loss failure ADR-0001 exists to prevent). #}
+  <div class="banner">{{ failed_total }} 个任务失败</div>
+{% endif %}
+
+{% if jobs %}
+<table>
+  <tr><th>#</th><th>状态</th><th>视频</th><th>时间</th></tr>
+  {% for j, caption, author in jobs %}
+  <tr>
+    <td class="note">{{ j.id }}</td>
+    <td><span class="status {{ j.status }}">{{ j.status }}</span></td>
+    <td>
+      {# What the row is actually about. `duplicate` in particular is a correct
+         no-op that looks like a fault until you can see it landed on a video you
+         already have — and the short link will not tell you, because Douyin
+         issues a new one every time you tap share. #}
+      {% if caption %}
+        <div class="job-title">{{ caption }}</div>
+        <div class="note">
+          {% if j.status == 'duplicate' %}已经在库里了 · {% endif %}
+          {{ author or '未知作者' }} · 视频 {{ j.video_id }}
+        </div>
+      {% elif j.failure_kind %}
+        <div class="note">{{ j.failure_kind }}{% if j.last_error %} — {{ j.last_error[:90] }}{% endif %}</div>
+      {% else %}
+        <div class="note">—</div>
+      {% endif %}
+    </td>
+    <td class="note">{{ j.created_at.strftime('%m-%d %H:%M') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+  <div class="empty"><strong>还没有任务</strong><span>从「添加」粘一条进来试试。</span></div>
+{% endif %}
+{% endblock %}
